@@ -43,12 +43,20 @@ QueryFlow menyimpan salinan lokal (snapshot). Jika isi file SQL berubah, impor f
 
 - Klik **Run** di samping satu file untuk menjalankan satu query.
 - Klik **Run Folder** untuk menjalankan semua query yang dipilih dalam folder secara berurutan.
-- Klik **Stop** untuk menghentikan proses. Hasil yang sudah diterima tetap diunduh sebagai Excel parsial.
+ Klik **Stop** untuk menghentikan proses. Hasil yang sudah diterima tetap diunduh sebagai Excel parsial atau ZIP parsial sesuai pengaturan folder.
 - Klik nama file untuk melihat SQL; gunakan **Copy** untuk menyalin SQL dengan filter wilayah yang dipilih.
 
-Hasil setiap query menjadi satu sheet Excel. Hasil satu folder digabung dalam satu workbook; file besar dapat dipecah menjadi beberapa bagian bernomor. Jika satu query gagal, hasil yang sudah terkumpul tetap diunduh.
+Hasil setiap query menjadi satu sheet Excel. Tanpa pemisahan kolom, hasil satu folder digabung dalam satu workbook; file besar dapat dipecah menjadi beberapa bagian bernomor. Jika satu query gagal, hasil yang sudah terkumpul tetap diunduh sebagai output parsial.
 
 ### Filter wilayah
+
+### Pisahkan hasil menurut kolom
+
+Di pengaturan setiap folder, isi **Pisahkan berdasarkan kolom** untuk membuat workbook terpisah bagi setiap nilai unik. Kolom kedua bersifat opsional; jika diisi, setiap kombinasi kedua nilai menjadi satu workbook. Nama yang dimasukkan harus tersedia pada header hasil semua query terpilih. Pencocokan mengabaikan huruf besar/kecil dan spasi di awal/akhir.
+
+QueryFlow memeriksa header dari hasil SQL Lab saat query mulai, tanpa menjalankan query tambahan. Jika kolom tidak ditemukan atau nama header ambigu, batch berhenti sebelum menerima baris query tersebut. Nilai kolom yang kosong atau `NULL` masuk ke kelompok `(blank)`. Batas halaman SQL tidak memulai kelompok baru; nilai yang sama tetap masuk ke workbook yang sama lintas halaman dan file SQL.
+
+Saat pemisahan aktif, setiap checkpoint diunduh sebagai ZIP berisi workbook per kelompok dan `manifest.json`. Simpan seluruh ZIP dengan run ID yang sama. Manifest checkpoint berstatus `in_progress`; ZIP terakhir berisi status `complete` atau `incomplete`. Jika batch gagal, ZIP checkpoint yang sudah diunduh tetap ada dan ZIP terakhir menandai kegagalan serta mencantumkan checkpoint sebelumnya. Status ini penting karena checkpoint lama tidak dapat ditarik kembali dari folder Downloads.
 
 Filter wilayah hanya diterapkan pada SQL yang menggunakan parameter `filter_provinsi` dan `filter_kabupaten`. Isi kode provinsi (Level 1) atau kode kabupaten/kota (Level 2); jika Level 2 diisi, Level 1 tidak digunakan. Biarkan keduanya kosong untuk tidak menerapkan filter wilayah dari QueryFlow.
 

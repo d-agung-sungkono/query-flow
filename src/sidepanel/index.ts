@@ -1,6 +1,7 @@
 import "./style.css";
 import packageJson from "../../package.json";
 import { ChunkedExport, collectQuery, EXPORT_CHECKPOINT_ROWS } from "../services/chunked-export";
+import { SplitChunkedExport, validateSplitColumnInputs, type FolderExportOutput } from "../services/split-export";
 import { applyWilayahConfig, extractSqlTitle } from "../services/sql";
 
 let folderRunning = false;
@@ -213,6 +214,10 @@ function renderGroups(): void {
     let startRow = advancedSettings ? configuredStartRow : 1;
     let maxRows = advancedSettings ? configuredMaxRows : undefined;
     let checkpointRows = advancedSettings ? configuredCheckpointRows : EXPORT_CHECKPOINT_ROWS;
+    const configuredSplitColumns = Array.isArray(currentConfig.splitColumns) ? currentConfig.splitColumns : [];
+    let splitColumn1 = typeof configuredSplitColumns[0] === "string" ? configuredSplitColumns[0] : "";
+    let splitColumn2 = typeof configuredSplitColumns[1] === "string" ? configuredSplitColumns[1] : "";
+    let splitEnabled = typeof currentConfig.splitEnabled === "boolean" ? currentConfig.splitEnabled : Boolean(splitColumn1);
 
     const details = document.createElement("details");
     details.className = "group";
@@ -244,6 +249,8 @@ function renderGroups(): void {
 
     const rowGroup = document.createElement("div");
     rowGroup.className = "config-row-group";
+    const advancedSettingsContent = document.createElement("div");
+    advancedSettingsContent.className = "advanced-settings-content";
 
     const startRowField = document.createElement("div");
     startRowField.className = "config-field";
@@ -283,6 +290,50 @@ function renderGroups(): void {
 
     rowGroup.append(startRowField, maxRowsField, checkpointRowsField);
 
+    const splitSettings = document.createElement("div");
+    splitSettings.className = "split-settings";
+    const splitSettingsLabel = document.createElement("label");
+    splitSettingsLabel.className = "advanced-settings-toggle split-settings-toggle";
+    const splitSettingsInput = document.createElement("input");
+    splitSettingsInput.type = "checkbox";
+    splitSettingsInput.checked = splitEnabled;
+    const splitSettingsText = document.createElement("span");
+    splitSettingsText.textContent = "Split Excel by column";
+    splitSettingsLabel.append(splitSettingsInput, splitSettingsText);
+
+    const splitColumnFields = document.createElement("div");
+    splitColumnFields.className = "split-column-fields";
+    const splitColumn1Field = document.createElement("div");
+    splitColumn1Field.className = "config-field";
+    const splitColumn1Label = document.createElement("label");
+    splitColumn1Label.textContent = "Pisahkan berdasarkan kolom";
+    const splitColumn1Input = document.createElement("input");
+    splitColumn1Input.type = "text";
+    splitColumn1Input.value = splitColumn1;
+    splitColumn1Input.placeholder = "Contoh: kode_kabupaten";
+    splitColumn1Input.autocomplete = "off";
+    splitColumn1Input.setAttribute("aria-label", "Kolom pertama untuk memisahkan hasil Excel");
+    splitColumn1Field.append(splitColumn1Label, splitColumn1Input);
+
+    const splitColumn2Field = document.createElement("div");
+    splitColumn2Field.className = "config-field split-column-field";
+    const splitColumn2Label = document.createElement("label");
+    splitColumn2Label.textContent = "Kolom kedua (opsional)";
+    const splitColumn2Input = document.createElement("input");
+    splitColumn2Input.type = "text";
+    splitColumn2Input.value = splitColumn2;
+    splitColumn2Input.placeholder = "Contoh: kategori";
+    splitColumn2Input.autocomplete = "off";
+    splitColumn2Input.setAttribute("aria-label", "Kolom kedua untuk memisahkan hasil Excel");
+    splitColumn2Field.append(splitColumn2Label, splitColumn2Input);
+    splitColumnFields.append(splitColumn1Field, splitColumn2Field);
+
+    const splitColumnNote = document.createElement("p");
+    splitColumnNote.className = "split-column-note";
+    splitColumnNote.textContent = "Kolom pertama wajib; kolom kedua opsional. Nama kolom divalidasi dari hasil SQL.";
+    splitSettings.append(splitSettingsLabel, splitColumnFields, splitColumnNote);
+    advancedSettingsContent.append(rowGroup, splitSettings);
+
     const toolbar = document.createElement("div");
     toolbar.className = "config-selection-toolbar";
     const selectionBadge = document.createElement("span");
@@ -301,7 +352,7 @@ function renderGroups(): void {
     selectionActions.append(selectAllBtn, deselectAllBtn);
 
     toolbar.append(selectionBadge, selectionActions);
-    configBox.append(advancedSettingsLabel, rowGroup, toolbar);
+    configBox.append(advancedSettingsLabel, advancedSettingsContent, toolbar);
 
     const batch = document.createElement("button");
     batch.className = "secondary-button";
@@ -318,6 +369,8 @@ function renderGroups(): void {
         startRow,
         maxRows,
         checkpointRows,
+        splitColumns: [splitColumn1.trim(), splitColumn2.trim()],
+        splitEnabled,
       };
       try {
         await saveFolderConfigs(folderConfigs);
@@ -333,9 +386,18 @@ function renderGroups(): void {
       maxRowsInput.disabled = !advancedSettings;
       checkpointRowsInput.disabled = !advancedSettings;
       rowGroup.classList.toggle("is-disabled", !advancedSettings);
+      advancedSettingsContent.hidden = !advancedSettings;
+    };
+
+    const updateSplitSettingsState = (): void => {
+      splitColumnFields.hidden = !splitEnabled;
+      splitColumn1Input.disabled = !splitEnabled;
+      splitColumn2Input.disabled = !splitEnabled || !splitColumn1.trim();
+      splitColumn2Field.classList.toggle("is-disabled", splitColumn2Input.disabled);
     };
 
     updateAdvancedSettingsState();
+    updateSplitSettingsState();
 
     const updateSelectionDisplay = (): void => {
       const count = selectedPaths.size;
@@ -362,6 +424,21 @@ function renderGroups(): void {
       const val = parseInt(checkpointRowsInput.value, 10);
       checkpointRows = !isNaN(val) && val > 0 ? val : EXPORT_CHECKPOINT_ROWS;
       checkpointRowsInput.value = String(checkpointRows);
+      void persistCurrentFolderConfig();
+    });
+
+    splitColumn1Input.addEventListener("change", () => {
+      splitColumn1 = splitColumn1Input.value.trim();
+      updateSplitSettingsState();
+      void persistCurrentFolderConfig();
+    });
+    splitColumn2Input.addEventListener("change", () => {
+      splitColumn2 = splitColumn2Input.value.trim();
+      void persistCurrentFolderConfig();
+    });
+    splitSettingsInput.addEventListener("change", () => {
+      splitEnabled = splitSettingsInput.checked;
+      updateSplitSettingsState();
       void persistCurrentFolderConfig();
     });
 
@@ -430,13 +507,27 @@ function renderGroups(): void {
         batchStatus.textContent = "Pilih minimal 1 file SQL untuk dijalankan.";
         return;
       }
+      splitColumn1 = splitColumn1Input.value.trim();
+      splitColumn2 = splitColumn2Input.value.trim();
+      const useSplitColumns = advancedSettings && splitEnabled;
+      if (useSplitColumns) {
+        const splitColumnsError = validateSplitColumnInputs(splitColumn1, splitColumn2);
+        if (splitColumnsError) {
+          batchStatus.textContent = splitColumnsError;
+          return;
+        }
+      }
+      const splitColumns = useSplitColumns ? [splitColumn1, splitColumn2].filter(Boolean) : [];
+      await persistCurrentFolderConfig();
 
       folderRunning = true;
       batchStopRequested = false;
       batchController = new AbortController();
       batch.textContent = "■ Stop";
       batch.classList.add("stop-button");
-      const output = new ChunkedExport(group.path, undefined, undefined, undefined, checkpointRows);
+      const output: FolderExportOutput = splitColumns.length
+        ? new SplitChunkedExport(group.path, createRunId(), splitColumns, { checkpointRows })
+        : new ChunkedExport(group.path, undefined, undefined, undefined, checkpointRows);
       batchStatus.classList.remove("progress-error", "progress-warning");
       try {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -469,7 +560,13 @@ function renderGroups(): void {
               () => batchStopRequested,
               (message) => { batchStatus.textContent = message; },
               batchController.signal,
-              { startRow, maxRows },
+              {
+                startRow,
+                maxRows,
+                onColumns: (columns) => {
+                  if (output instanceof SplitChunkedExport) output.validateHeaders(file.path, columns);
+                },
+              },
             );
           } finally {
             runProgressTargets.delete(runId);
@@ -479,7 +576,8 @@ function renderGroups(): void {
           }
         }
         await output.flush(true);
-        batchStatus.textContent = `Selesai: ${output.totalRows.toLocaleString("id-ID")} baris · ${output.parts} file Excel diunduh.`;
+        const outputType = output instanceof SplitChunkedExport ? "file ZIP" : "file Excel";
+        batchStatus.textContent = `Selesai: ${output.totalRows.toLocaleString("id-ID")} baris · ${output.parts} ${outputType} diunduh.`;
       } catch (error) {
         batchStatus.textContent = await finishPartial(output, error);
       } finally {
@@ -705,11 +803,12 @@ function formatRunProgress(progress: SqlRunProgress): string {
     : `Proses ke-${progress.iteration} selesai · ${rows} baris terkumpul`;
 }
 
-async function finishPartial(output: ChunkedExport, error: unknown): Promise<string> {
+async function finishPartial(output: FolderExportOutput, error: unknown): Promise<string> {
   const reason = error instanceof Error ? error.message : "Run gagal.";
   try {
-    await output.flush(true, true);
-    return `${reason} ${output.parts ? `Hasil parsial: ${output.totalRows.toLocaleString("id-ID")} baris · ${output.parts} file Excel diunduh.` : "Belum ada hasil yang dapat diunduh."}`;
+    await output.flush(true, true, reason);
+    const outputType = output instanceof SplitChunkedExport ? "file ZIP" : "file Excel";
+    return `${reason} ${output.parts ? `Hasil parsial: ${output.totalRows.toLocaleString("id-ID")} baris · ${output.parts} ${outputType} diunduh.` : "Belum ada hasil yang dapat diunduh."}`;
   } catch (exportError) {
     return `${reason} Ekspor sisa hasil gagal: ${exportError instanceof Error ? exportError.message : "Error Excel"}. ${output.parts} bagian sebelumnya sudah diunduh.`;
   }

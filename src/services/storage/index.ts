@@ -59,6 +59,8 @@ export interface StoredFolderConfig {
   startRow?: number;
   maxRows?: number;
   checkpointRows?: number;
+  splitColumns?: string[];
+  splitEnabled?: boolean;
 }
 
 export async function loadFolderConfigs(): Promise<Record<string, StoredFolderConfig>> {

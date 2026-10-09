@@ -108,6 +108,7 @@ input:focus { border-color: #39745a; box-shadow: 0 0 0 3px rgba(57,116,90,.12); 
   margin-bottom: 7px;
 }
 .config-row-group.is-disabled { opacity: 0.55; }
+.advanced-settings-content[hidden], .split-column-fields[hidden] { display: none; }
 .config-field {
   display: flex;
   flex-direction: column;
@@ -131,6 +132,20 @@ input:focus { border-color: #39745a; box-shadow: 0 0 0 3px rgba(57,116,90,.12); 
   border-radius: 5px;
   background: #fff;
   font-size: 11px;
+}
+.split-column-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 6px 0 3px;
+}
+.split-column-field.is-disabled { opacity: 0.5; }
+.split-settings-toggle { margin: 8px 0 4px; }
+.split-column-note {
+  margin: 3px 0 7px;
+  color: #68776e;
+  font-size: 9px;
+  line-height: 1.35;
 }
 .config-selection-toolbar {
   display: flex;

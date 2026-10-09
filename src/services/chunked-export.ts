@@ -82,7 +82,7 @@ export async function collectQuery(
   stopped: () => boolean,
   report: (message: string) => void,
   signal?: AbortSignal,
-  options: { startRow?: number; maxRows?: number } = {},
+  options: { startRow?: number; maxRows?: number; onColumns?: (columns: string[]) => void } = {},
 ): Promise<void> {
   const parsedStartRow = Number(options.startRow);
   let offset = Number.isFinite(parsedStartRow) && parsedStartRow >= 1 ? Math.floor(parsedStartRow) - 1 : 0;
@@ -122,6 +122,7 @@ export async function collectQuery(
       }
       throw new Error(response.message);
     }
+    options.onColumns?.(response.columns);
     // A chunk that finished concurrently with Stop is still valid and exported.
     if (response.rows.length || offset === 0) await accept(response.columns, response.rows);
     collectedRows += response.rows.length;
