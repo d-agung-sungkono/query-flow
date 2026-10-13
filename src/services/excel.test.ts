@@ -57,11 +57,11 @@ it("uses Chrome downloads for automatic parts and reports download rejection", a
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
   const results = [{ filename: "a.sql", title: "A", columns: ["id"], rows: [[1]] }];
   await exportFolder("folder_part-001", results);
-  expect(download).toHaveBeenCalledWith({ url: "blob:test", filename: "folder_part-001.xlsx", saveAs: false, conflictAction: "uniquify" });
+  expect(download).toHaveBeenCalledWith({ url: "blob:test", filename: expect.stringMatching(/^folder_part-001_\d{4}-\d{2}-\d{2}\.xlsx$/), saveAs: false, conflictAction: "uniquify" });
   await expect(exportFolder("folder_partial", results)).rejects.toThrow("Download rejected");
 });
 
 it("generates correct workbook filenames for standard and partial exports", () => {
-  expect(workbookFilename("Agregat/Kategori_A")).toBe("Agregat_Kategori_A.xlsx");
-  expect(workbookFilename("Agregat/Kategori_A", true)).toBe("Agregat_Kategori_A_partial.xlsx");
+  expect(workbookFilename("Agregat/Kategori_A", false, "2026-10-13")).toBe("Agregat_Kategori_A_2026-10-13.xlsx");
+  expect(workbookFilename("Agregat/Kategori_A", true, "2026-10-13")).toBe("Agregat_Kategori_A_2026-10-13_partial.xlsx");
 });

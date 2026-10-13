@@ -43,6 +43,26 @@ it("does not report a timed-out identified query as a successful empty result", 
   expect(await promise).toMatchObject({ ok: false, message: expect.stringContaining("4 menit") });
 });
 
+it("marks an empty result as no-data only after SQL Lab query success", async () => {
+  setup([]);
+  const promise = runInSqlLabChunk("select id from t", "run", "a.sql", 0, 9000, 1);
+  await vi.advanceTimersByTimeAsync(300);
+  expect(await promise).toMatchObject({
+    ok: true,
+    message: "The query returned no data",
+    columns: ["id"],
+    rows: [],
+    hasMore: false,
+  });
+});
+
+it("keeps an empty result from a failed database query as an error", async () => {
+  setup([], "failed");
+  const promise = runInSqlLabChunk("select id from t", "run", "a.sql", 0, 9000, 1);
+  await vi.advanceTimersByTimeAsync(300);
+  expect(await promise).toMatchObject({ ok: false, message: "Query failed" });
+});
+
 it("honors cancellation before a new chunk starts", async () => {
   const { run } = setup([{ id: 1 }]);
   stopSqlLabRun("run");

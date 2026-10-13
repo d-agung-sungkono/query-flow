@@ -46,15 +46,15 @@ QueryFlow menyimpan salinan lokal (snapshot). Jika isi file SQL berubah, impor f
  Klik **Stop** untuk menghentikan proses. Hasil yang sudah diterima tetap diunduh sebagai Excel parsial atau ZIP parsial sesuai pengaturan folder.
 - Klik nama file untuk melihat SQL; gunakan **Copy** untuk menyalin SQL dengan filter wilayah yang dipilih.
 
-Hasil setiap query menjadi satu sheet Excel. Tanpa pemisahan kolom, hasil satu folder digabung dalam satu workbook; file besar dapat dipecah menjadi beberapa bagian bernomor. Jika satu query gagal, hasil yang sudah terkumpul tetap diunduh sebagai output parsial.
+Hasil setiap query menjadi satu sheet Excel. Tanpa pemisahan kolom, hasil satu folder digabung dalam satu workbook; file besar dapat dipecah menjadi beberapa bagian bernomor. Nama file Excel menyertakan tanggal ekspor (`YYYY-MM-DD`). Hanya hasil sukses SQL Lab dengan pesan `The query returned no data` yang diekspor sebagai workbook kosong berisi judul dan header (jika tersedia), lalu proses folder berlanjut ke query berikutnya. Error database atau balasan kosong tanpa konfirmasi tersebut tetap dianggap gagal. Jika satu query gagal, hasil yang sudah terkumpul tetap diunduh sebagai output parsial.
 
 ### Filter wilayah
 
 ### Pisahkan hasil menurut kolom
 
-Di pengaturan setiap folder, isi **Pisahkan berdasarkan kolom** untuk membuat workbook terpisah bagi setiap nilai unik. Kolom kedua bersifat opsional; jika diisi, setiap kombinasi kedua nilai menjadi satu workbook. Nama yang dimasukkan harus tersedia pada header hasil semua query terpilih. Pencocokan mengabaikan huruf besar/kecil dan spasi di awal/akhir.
+Di pengaturan setiap folder, isi **Pisahkan berdasarkan kolom** untuk membuat workbook terpisah bagi setiap nilai unik. Kolom kedua bersifat opsional; jika diisi, setiap kombinasi kedua nilai menjadi satu workbook. Nama file workbook menampilkan nilai kolom pembagi dan tanggal ekspor; jika label yang sudah dibersihkan bertabrakan, akhiran angka membedakannya. Nama kolom yang dimasukkan harus tersedia pada header hasil semua query terpilih. Pencocokan mengabaikan huruf besar/kecil dan spasi di awal/akhir.
 
-QueryFlow memeriksa header dari hasil SQL Lab saat query mulai, tanpa menjalankan query tambahan. Jika kolom tidak ditemukan atau nama header ambigu, batch berhenti sebelum menerima baris query tersebut. Nilai kolom yang kosong atau `NULL` masuk ke kelompok `(blank)`. Batas halaman SQL tidak memulai kelompok baru; nilai yang sama tetap masuk ke workbook yang sama lintas halaman dan file SQL.
+QueryFlow memeriksa header dari hasil SQL Lab saat query mulai, tanpa menjalankan query tambahan. Jika hasil berisi baris tetapi kolom pembagi tidak ditemukan atau nama header ambigu, batch berhenti sebelum menerima baris query tersebut. Query tanpa baris hanya mendapat workbook berjudul tersendiri bila SQL Lab mengonfirmasi sukses dengan pesan `The query returned no data`; kondisi ini tidak memerlukan kolom pembagi. Nilai kolom yang kosong atau `NULL` masuk ke kelompok `(blank)`. Batas halaman SQL tidak memulai kelompok baru; nilai yang sama tetap masuk ke workbook yang sama lintas halaman dan file SQL.
 
 Saat pemisahan aktif, setiap checkpoint diunduh sebagai ZIP berisi workbook per kelompok dan `manifest.json`. Simpan seluruh ZIP dengan run ID yang sama. Manifest checkpoint berstatus `in_progress`; ZIP terakhir berisi status `complete` atau `incomplete`. Jika batch gagal, ZIP checkpoint yang sudah diunduh tetap ada dan ZIP terakhir menandai kegagalan serta mencantumkan checkpoint sebelumnya. Status ini penting karena checkpoint lama tidak dapat ditarik kembali dari folder Downloads.
 

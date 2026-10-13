@@ -122,9 +122,9 @@ export async function collectQuery(
       }
       throw new Error(response.message);
     }
-    options.onColumns?.(response.columns);
+    if (response.rows.length) options.onColumns?.(response.columns);
     // A chunk that finished concurrently with Stop is still valid and exported.
-    if (response.rows.length || offset === 0) await accept(response.columns, response.rows);
+    if (response.rows.length) await accept(response.columns, response.rows);
     collectedRows += response.rows.length;
     if (stopped()) break;
     if (maxRows !== undefined && collectedRows >= maxRows) return;
@@ -132,7 +132,15 @@ export async function collectQuery(
       iteration++;
       continue;
     }
-    if (!response.hasMore) return;
+    if (!response.hasMore) {
+      if (collectedRows === 0) {
+        if (response.message !== "The query returned no data") {
+          throw new Error("SQL Lab returned an empty result without confirming: The query returned no data.");
+        }
+        await accept(response.columns, []);
+      }
+      return;
+    }
     if (!response.rows.length) throw new Error("Chunk kosong tetapi hasil belum selesai; proses dihentikan agar tidak mengulang tanpa akhir.");
     offset += response.pageSize ?? limit;
     limit = Math.min(9000, maxRows === undefined ? 9000 : maxRows - collectedRows);

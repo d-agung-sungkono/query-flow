@@ -71,7 +71,7 @@ export async function runInSqlLabChunk(baseSql: string, runId: string, path: str
     }, window.location.origin);
   }
 
-  type Query = { id?: string; sql?: string; state?: string; errorMessage?: string; results?: { columns?: { name: string }[]; data?: Record<string, unknown>[] }; rows?: number };
+  type Query = { id?: string; sql?: string; state?: string; errorMessage?: string; errors?: unknown[]; results?: { columns?: { name: string }[]; data?: Record<string, unknown>[] }; rows?: number };
   type Store = { getState(): { sqlLab?: { queries?: Record<string, Query> } } };
 
   function takeRows(columns: string[], data: Record<string, unknown>[], start: number, end: number): unknown[][] {
@@ -192,6 +192,9 @@ export async function runInSqlLabChunk(baseSql: string, runId: string, path: str
         if (!query) continue;
         if (["failed", "stopped", "timed_out"].includes(query.state ?? "")) throw new Error(query.errorMessage ?? `Query ${query.state}`);
         if (query.state !== "success") continue;
+        if (query.errorMessage || (Array.isArray(query.errors) && query.errors.length > 0)) {
+          throw new Error(query.errorMessage ?? "SQL Lab melaporkan error pada query.");
+        }
 
         const cols = query.results?.columns?.map((column) => column.name);
         const data = query.results?.data;
@@ -227,7 +230,7 @@ export async function runInSqlLabChunk(baseSql: string, runId: string, path: str
       reportProgress("completed", iteration, offset + batchRows.length, batchRows.length);
       return {
         ok: true,
-        message: "Chunk diterima.",
+        message: batchRows.length === 0 ? "The query returned no data" : "Chunk diterima.",
         columns: batchColumns,
         rows: batchRows,
         hasMore,

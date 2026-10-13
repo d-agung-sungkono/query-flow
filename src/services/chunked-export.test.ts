@@ -147,6 +147,37 @@ describe("automatic chunk collection", () => {
     expect(accept).toHaveBeenCalledTimes(2);
   });
 
+  it("accepts a terminal empty result without trying to validate split headers", async () => {
+    const request = vi.fn(async (): Promise<SqlChunkResponse> => ({
+      ok: true,
+      message: "The query returned no data",
+      columns: [],
+      rows: [],
+      hasMore: false,
+    }));
+    const accept = vi.fn(async () => {});
+    const onColumns = vi.fn();
+
+    await expect(collectQuery(request, accept, () => false, vi.fn(), undefined, { onColumns })).resolves.toBeUndefined();
+
+    expect(onColumns).not.toHaveBeenCalled();
+    expect(accept).toHaveBeenCalledWith([], []);
+  });
+
+  it("does not treat an unconfirmed empty response as a successful query", async () => {
+    const request = vi.fn(async (): Promise<SqlChunkResponse> => ({
+      ok: true,
+      message: "Chunk diterima.",
+      columns: [],
+      rows: [],
+      hasMore: false,
+    }));
+    const accept = vi.fn(async () => {});
+
+    await expect(collectQuery(request, accept, () => false, vi.fn())).rejects.toThrow(/without confirming.*The query returned no data/i);
+    expect(accept).not.toHaveBeenCalled();
+  });
+
   it("retries a failed SQL request at the same offset with a smaller query page", async () => {
     const request = vi.fn<(...args: number[]) => Promise<SqlChunkResponse>>()
       .mockResolvedValueOnce({ ok: false, message: "Response exceeded 64 MB" })

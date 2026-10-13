@@ -80,10 +80,17 @@ export function buildWorkbook(results: QueryResult[]): ExcelJS.Workbook {
   return workbook;
 }
 
-export function workbookFilename(path: string, isPartial = false): string {
+export function localDateStamp(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function workbookFilename(path: string, isPartial = false, dateStamp = localDateStamp()): string {
   const folder = path.replace(/^\/+|\/+$/g, "") || "Query";
   const base = folder.replace(/[^a-z0-9_-]/gi, "_");
-  return isPartial ? `${base}_partial.xlsx` : `${base}.xlsx`;
+  return isPartial ? `${base}_${dateStamp}_partial.xlsx` : `${base}_${dateStamp}.xlsx`;
 }
 
 export async function serializeWorkbook(results: QueryResult[]): Promise<Uint8Array> {

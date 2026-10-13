@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { resolveSplitColumnIndexes, SplitChunkedExport, validateSplitColumnInputs } from "./split-export";
-import type { QueryResult } from "./excel";
+import { localDateStamp, type QueryResult } from "./excel";
 
 const result = (filename: string, columns: string[], rows: unknown[][]): QueryResult => ({ filename, title: filename, columns, rows });
 const serialize = async (results: QueryResult[]): Promise<Uint8Array> => new TextEncoder().encode(JSON.stringify(results));
@@ -51,7 +51,11 @@ describe("partitioned checkpoint ZIP export", () => {
     const archive = await readArchive(downloads[0]!.bytes);
     const names = Object.keys(archive.files).filter((name) => name.endsWith(".xlsx"));
     expect(names).toHaveLength(2);
-    const fWorkbookFile = archive.file(names.find((name) => name.includes("3507_f"))!);
+    const fWorkbookFile = archive.file(names.find((name) => name.includes("3507 - F"))!);
+    expect(names.sort()).toEqual([
+      `Agregat_Kategori_A_3507 - F_${localDateStamp()}.xlsx`,
+      `Agregat_Kategori_A_3507 - G_${localDateStamp()}.xlsx`,
+    ]);
     const fWorkbook = JSON.parse(await fWorkbookFile!.async("string")) as QueryResult[];
     expect(fWorkbook).toEqual([
       result("q1.sql", ["kab", "kategori", "nilai"], [["3507", "F", 1], ["3507", "F", 3]]),
@@ -68,7 +72,35 @@ describe("partitioned checkpoint ZIP export", () => {
     const archive = await readArchive(downloads[0]!.bytes);
     const names = Object.keys(archive.files).filter((name) => name.endsWith(".xlsx"));
     expect(names).toHaveLength(1);
-    expect(names[0]).toContain("blank_f");
+    expect(names[0]).toContain("(blank) - F");
+    expect(names[0]).toMatch(/_\d{4}-\d{2}-\d{2}\.xlsx$/);
+  });
+
+  it("exports an empty query with its title without requiring split headers", async () => {
+    const { output, downloads } = setup();
+    const emptyResult = result("empty.sql", [], []);
+    emptyResult.title = "Empty query title";
+
+    await expect(output.append(emptyResult)).resolves.toBeUndefined();
+    await output.flush(true);
+
+    const archive = await readArchive(downloads[0]!.bytes);
+    const names = Object.keys(archive.files).filter((name) => name.endsWith(".xlsx"));
+    expect(names).toHaveLength(1);
+    expect(names[0]).toContain("No data - Empty query title");
+    const workbookFile = archive.file(names[0]!);
+    expect(JSON.parse(await workbookFile!.async("string"))).toEqual([emptyResult]);
+  });
+
+  it("keeps readable filenames unique when sanitized labels collide", async () => {
+    const { output, downloads } = setup();
+    await output.append(result("q.sql", ["kab", "kategori", "value"], [["A/B", "F", 1], ["A:B", "F", 2]]));
+    await output.flush(true);
+    const archive = await readArchive(downloads[0]!.bytes);
+    const names = Object.keys(archive.files).filter((name) => name.endsWith(".xlsx"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+    expect(names.every((name) => name.includes("A B - F"))).toBe(true);
   });
 
   it("downloads checkpoint ZIPs and an incomplete manifest without deleting prior checkpoints", async () => {
@@ -82,8 +114,8 @@ describe("partitioned checkpoint ZIP export", () => {
     expect(() => output.validateHeaders("q3.sql", ["kab", "value"])).toThrow(/kategori.*q3\.sql/i);
     await output.flush(true, true, "Kolom pembagi kategori tidak ditemukan pada q3.sql.");
     expect(downloads).toHaveLength(2);
-    expect(downloads[0]!.filename).toMatch(/run-123_part-001\.zip$/);
-    expect(downloads[1]!.filename).toMatch(/run-123_part-002\.zip$/);
+    expect(downloads[0]!.filename).toMatch(/_\d{4}-\d{2}-\d{2}_run-run-123_part-001\.zip$/);
+    expect(downloads[1]!.filename).toMatch(/_\d{4}-\d{2}-\d{2}_run-run-123_part-002\.zip$/);
     const finalArchive = await readArchive(downloads[1]!.bytes);
     const finalManifest = JSON.parse(await finalArchive.file("manifest.json")!.async("string")) as { status: string; failure?: string; previousArchives: string[] };
     expect(finalManifest.status).toBe("incomplete");
